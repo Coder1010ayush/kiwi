@@ -22,7 +22,7 @@ export type AppConfigState = {
 
 const DEFAULTS = {
   apiBaseUrl: env.autobotsApiBaseUrl,
-  authMode: "apiKey" as const,
+  authMode: "bearer" as const,
   apiKey: env.autobotsApiKey,
   bearerToken: "",
 };
