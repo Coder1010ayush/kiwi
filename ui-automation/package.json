@@ -1,0 +1,11 @@
+{
+  "name": "kiwi-ui-automation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit": "node audit.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
