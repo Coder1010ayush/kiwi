@@ -1,0 +1,22 @@
+# Root ignore (repo layout: AutoCode/ + web/)
+
+# Next.js
+/web/node_modules
+/web/.next
+/web/out
+/web/.vercel
+
+# Env
+/web/.env
+/web/.env.*
+
+# Logs
+/web/install.log
+/web/install.err
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
