@@ -22,11 +22,10 @@ export function createAutobotsClient(opts: CreateAutobotsClientOptions) {
         headers.set("Authorization", opts.authorization);
       }
 
-      // Allow cookie-based auth if the backend uses it.
-      const nextRequest = new Request(request, {
-        headers,
-        credentials: "include",
-      });
+      // Note: we do NOT force `credentials: include` here because many backends use
+      // `Access-Control-Allow-Origin: *` which breaks credentialed CORS requests.
+      // If you need cookie-based auth, we can add a toggle and configure CORS accordingly.
+      const nextRequest = new Request(request, { headers });
 
       return fetch(nextRequest);
     },

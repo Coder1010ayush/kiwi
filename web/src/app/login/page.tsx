@@ -63,7 +63,7 @@ export default function LoginPage() {
           "content-type": "application/x-www-form-urlencoded",
         },
         body,
-        credentials: "include",
+
       });
 
       if (!res.ok) {
