@@ -21,3 +21,11 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Local project knowledge / secrets / scratch
+/AutoCode/
+/creds.json
+/web/dev_server.log
+/ui-automation/artifacts/
+/ui-automation/smoke_actions_chat.mjs
+/ui-automation/review_actions_chat.mjs

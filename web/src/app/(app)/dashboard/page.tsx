@@ -16,17 +16,38 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+            <CardDescription>Create reusable actions and chat with them.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/actions" className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400">
+              Open Actions →
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Action Runs</CardTitle>
+            <CardDescription>Review previous runs and track active execution progress.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/action-runs" className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400">
+              Open Action Runs →
+            </Link>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Ingestion</CardTitle>
             <CardDescription>Upload files and monitor ingestion status.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href="/ingestion"
-              className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400"
-            >
+            <Link href="/ingestion" className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400">
               Open Ingestion →
             </Link>
           </CardContent>
@@ -38,10 +59,7 @@ export default function DashboardPage() {
             <CardDescription>Create KBs and manage members.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href="/knowledge-bases"
-              className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400"
-            >
+            <Link href="/knowledge-bases" className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400">
               Open Knowledge Bases →
             </Link>
           </CardContent>
@@ -53,10 +71,7 @@ export default function DashboardPage() {
             <CardDescription>Configure base URL and auth.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href="/settings"
-              className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400"
-            >
+            <Link href="/settings" className="text-sm font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400">
               Open Settings →
             </Link>
           </CardContent>
@@ -67,7 +82,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>What’s next?</CardTitle>
           <CardDescription>
-            We’ll keep expanding this console with runnable invocation, observability, and more.
+            We’ll keep expanding this console with better action authoring, richer run observability, and more polished chat workflows.
           </CardDescription>
         </CardHeader>
       </Card>

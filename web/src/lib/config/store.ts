@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import { env } from "@/lib/env";
 
@@ -12,11 +12,13 @@ export type AppConfigState = {
   authMode: AuthMode;
   apiKey: string;
   bearerToken: string;
+  hasHydrated: boolean;
 
   setApiBaseUrl: (value: string) => void;
   setAuthMode: (value: AuthMode) => void;
   setApiKey: (value: string) => void;
   setBearerToken: (value: string) => void;
+  setHasHydrated: (value: boolean) => void;
   reset: () => void;
 };
 
@@ -25,6 +27,7 @@ const DEFAULTS = {
   authMode: "bearer" as const,
   apiKey: env.autobotsApiKey,
   bearerToken: "",
+  hasHydrated: false,
 };
 
 export const useAppConfig = create<AppConfigState>()(
@@ -36,8 +39,9 @@ export const useAppConfig = create<AppConfigState>()(
       setAuthMode: (value) => set({ authMode: value }),
       setApiKey: (value) => set({ apiKey: value }),
       setBearerToken: (value) => set({ bearerToken: value }),
+      setHasHydrated: (value) => set({ hasHydrated: value }),
 
-      reset: () => set({ ...DEFAULTS }),
+      reset: () => set({ ...DEFAULTS, hasHydrated: true }),
     }),
     {
       name: "kiwi:config",
@@ -49,6 +53,9 @@ export const useAppConfig = create<AppConfigState>()(
         apiKey: state.apiKey,
         bearerToken: state.bearerToken,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

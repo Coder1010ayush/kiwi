@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Database, LayoutDashboard, Settings, UploadCloud } from "lucide-react";
+import { Activity, Bot, Database, LayoutDashboard, Settings, UploadCloud } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/actions", label: "Actions", icon: Bot },
+  { href: "/action-runs", label: "Action Runs", icon: Activity },
   { href: "/ingestion", label: "Ingestion", icon: UploadCloud },
   { href: "/knowledge-bases", label: "Knowledge Bases", icon: Database },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -53,7 +55,7 @@ export function Sidebar() {
         </div>
 
         <div className="mt-6 rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
-          Tip: Configure your API base URL + auth in <span className="font-medium">Settings</span>.
+          Tip: Configure your API base URL and auth in <span className="font-medium">Settings</span>.
         </div>
       </nav>
     </aside>
