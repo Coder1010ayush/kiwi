@@ -51,9 +51,27 @@ async function main() {
     const results = [];
 
     for (const theme of ["light", "dark"]) {
-      const context = await browser.newContext({
-        viewport: { width: 1440, height: 900 },
-      });
+      let context;
+      try {
+        context = await browser.newContext({
+          viewport: { width: 1440, height: 900 },
+        });
+      } catch (err) {
+        // If the browser crashed between themes, relaunch and retry once.
+        try {
+          await browser.close();
+        } catch {
+          // ignore
+        }
+        try {
+          browser = await chromium.launch({ headless: true, channel: "msedge" });
+        } catch {
+          browser = await chromium.launch({ headless: true });
+        }
+        context = await browser.newContext({
+          viewport: { width: 1440, height: 900 },
+        });
+      }
 
       // Set theme + config before any page script runs.
       await context.addInitScript((themeValue) => {
@@ -92,18 +110,62 @@ async function main() {
         await page.screenshot({ path: shotPath, fullPage: true });
 
         const issues = await page.evaluate(() => {
-          function parseRgb(value) {
-            // Supports both legacy comma syntax: rgb(0, 0, 0) and modern syntax: rgb(0 0 0 / 1)
-            const m = value.match(
+          function clamp01(n) {
+            return Math.max(0, Math.min(1, n));
+          }
+
+          function parseColor(value) {
+            // Tailwind v4 often produces computed colors in CSS Color 4 formats like lab()/oklch().
+            // We only need an approximate luminance to catch egregious "white-on-white" failures.
+            const v = String(value || "").trim().toLowerCase();
+            if (!v) return null;
+            if (v === "transparent") return { kind: "transparent", a: 0, l: null, raw: v };
+
+            // rgb()/rgba() - supports both comma and space syntax: rgb(0,0,0) or rgb(0 0 0 / 1)
+            const mRgb = v.match(
               /rgba?\(\s*(\d+)(?:\s*,\s*|\s+)(\d+)(?:\s*,\s*|\s+)(\d+)(?:\s*(?:\/|,)\s*([\d.]+))?\s*\)/,
             );
-            if (!m) return null;
-            return {
-              r: Number(m[1]),
-              g: Number(m[2]),
-              b: Number(m[3]),
-              a: m[4] == null ? 1 : Number(m[4]),
-            };
+            if (mRgb) {
+              const r = Number(mRgb[1]);
+              const g = Number(mRgb[2]);
+              const b = Number(mRgb[3]);
+              const a = mRgb[4] == null ? 1 : Number(mRgb[4]);
+
+              // Perceived lightness heuristic (fast). We use this to catch obvious low-contrast cases.
+              const l = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+              return { kind: "rgb", r, g, b, a, l: clamp01(l), raw: v };
+            }
+
+            // oklab(L a b / alpha?)  (L can be 0..1 or percent)
+            const mOklab = v.match(/^oklab\(\s*([\d.]+)(%?)\s+[-\d.]+\s+[-\d.]+(?:\s*\/\s*([\d.]+))?\s*\)/);
+            if (mOklab) {
+              const rawL = Number(mOklab[1]);
+              const isPercent = mOklab[2] === "%";
+              const L = isPercent ? rawL / 100 : rawL;
+              const a = mOklab[3] == null ? 1 : Number(mOklab[3]);
+              return { kind: "oklab", L, a, l: clamp01(L), raw: v };
+            }
+
+            // lab(L a b / alpha?)  (L is 0..100)
+            const mLab = v.match(/^lab\(\s*([\d.]+)\s+[-\d.]+\s+[-\d.]+(?:\s*\/\s*([\d.]+))?\s*\)/);
+            if (mLab) {
+              const L = Number(mLab[1]);
+              const a = mLab[2] == null ? 1 : Number(mLab[2]);
+              return { kind: "lab", L, a, l: clamp01(L / 100), raw: v };
+            }
+
+            // oklch(L C H / alpha?)  (L can be 0..1 or percent)
+            const mOklch = v.match(/^oklch\(\s*([\d.]+)(%?)\s+[-\d.]+\s+[-\d.]+(?:\s*\/\s*([\d.]+))?\s*\)/);
+            if (mOklch) {
+              const rawL = Number(mOklch[1]);
+              const isPercent = mOklch[2] === "%";
+              const L = isPercent ? rawL / 100 : rawL;
+              const a = mOklch[3] == null ? 1 : Number(mOklch[3]);
+              return { kind: "oklch", L, a, l: clamp01(L), raw: v };
+            }
+
+            return null;
           }
 
           function isVisible(el) {
@@ -120,25 +182,20 @@ async function main() {
             let cur = el;
             while (cur) {
               const bg = window.getComputedStyle(cur).backgroundColor;
-              const rgb = parseRgb(bg);
-              if (rgb && rgb.a !== 0) return rgb;
+              const parsed = parseColor(bg);
+              if (parsed && parsed.a === 0) {
+                cur = cur.parentElement;
+                continue;
+              }
+              if (parsed && parsed.l != null) return parsed;
               cur = cur.parentElement;
             }
             // default white
-            return { r: 255, g: 255, b: 255, a: 1 };
+            return { kind: "rgb", r: 255, g: 255, b: 255, a: 1, l: 1, raw: "rgb(255 255 255)" };
           }
 
-          function luminance({ r, g, b }) {
-            const srgb = [r, g, b].map((v) => v / 255).map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
-            return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
-          }
-
-          function contrastRatio(fg, bg) {
-            const L1 = luminance(fg);
-            const L2 = luminance(bg);
-            const lighter = Math.max(L1, L2);
-            const darker = Math.min(L1, L2);
-            return (lighter + 0.05) / (darker + 0.05);
+          function lightnessDiff(fgL, bgL) {
+            return Math.abs(fgL - bgL);
           }
 
           function cssPath(el) {
@@ -167,35 +224,28 @@ async function main() {
             if (text.length > 160) continue; // avoid huge blocks
 
             const style = window.getComputedStyle(el);
-            const fg = parseRgb(style.color);
-            if (!fg) continue;
+            const fg = parseColor(style.color);
+            if (!fg || fg.a === 0 || fg.l == null) continue;
 
             const bg = getEffectiveBackground(el);
+            if (!bg || bg.a === 0 || bg.l == null) continue;
 
-            const ratio = contrastRatio(fg, bg);
+            const diff = lightnessDiff(fg.l, bg.l);
 
-            // Determine threshold (rough WCAG):
-            const fontSize = parseFloat(style.fontSize || "16");
-            const fontWeight = parseInt(style.fontWeight || "400", 10);
-            const isLarge = fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700);
-            const threshold = isLarge ? 3.0 : 4.5;
-
-            // Flag only genuinely bad contrast.
-            if (ratio < threshold) {
+            // Flag only "almost same color" cases (white-on-white, dark-on-dark).
+            if (diff < 0.12) {
               issues.push({
                 text,
-                ratio: Number(ratio.toFixed(2)),
-                fg,
-                bg,
-                fontSize,
-                fontWeight,
+                diff: Number(diff.toFixed(3)),
+                fg: { raw: fg.raw, kind: fg.kind, l: Number(fg.l.toFixed(4)) },
+                bg: { raw: bg.raw, kind: bg.kind, l: Number(bg.l.toFixed(4)) },
                 selector: cssPath(el),
               });
             }
           }
 
           // Sort worst first
-          issues.sort((a, b) => a.ratio - b.ratio);
+          issues.sort((a, b) => a.diff - b.diff);
           return issues.slice(0, 60);
         });
 
@@ -231,22 +281,22 @@ async function main() {
     console.log(`\n[audit] Done. Report: ${outJson}`);
     console.log(`[audit] Screenshots are in: ${runDir}`);
 
-    // Print a concise summary of the worst issues across all pages/themes.
+    // Print a concise summary of the worst (closest colors) across all pages/themes.
     const flattened = results.flatMap((r) =>
       r.issues.map((i) => ({
         theme: r.theme,
         page: r.page.name,
-        ratio: i.ratio,
+        diff: i.diff,
         text: i.text,
         selector: i.selector,
       })),
     );
 
-    flattened.sort((a, b) => a.ratio - b.ratio);
+    flattened.sort((a, b) => a.diff - b.diff);
 
-    console.log("\n[audit] Worst 15 contrast issues:");
+    console.log("\n[audit] Worst 15 low-contrast candidates (lightness diff):");
     for (const row of flattened.slice(0, 15)) {
-      console.log(`- (${row.theme}) ${row.page} ratio=${row.ratio} text=${JSON.stringify(row.text)} sel=${row.selector}`);
+      console.log(`- (${row.theme}) ${row.page} diff=${row.diff} text=${JSON.stringify(row.text)} sel=${row.selector}`);
     }
   } finally {
     try {
